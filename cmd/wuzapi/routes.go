@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/justinas/alice"
-	"github.com/rs/zerolog/hlog"
+	"github.com/rs/zerolog/log"
 )
 
 type Middleware = alice.Constructor
