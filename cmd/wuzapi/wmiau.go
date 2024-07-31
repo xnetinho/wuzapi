@@ -31,6 +31,7 @@ import (
 	"go.mau.fi/whatsmeow/types/events"
 	waLog "go.mau.fi/whatsmeow/util/log"
 	//"google.golang.org/protobuf/proto"
+	"github.com/rs/zerolog/log"
 )
 
 // var wlog waLog.Logger
