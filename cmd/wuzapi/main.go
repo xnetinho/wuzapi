@@ -31,7 +31,6 @@ type server struct {
 }
 
 var (
-	// Flags that can be set via command line
 	address    = flag.String("address", "", "Bind IP Address")
 	port       = flag.String("port", "8080", "Listen Port")
 	waDebug    = flag.String("wadebug", "", "Enable whatsmeow debug (INFO or DEBUG)")
@@ -49,11 +48,9 @@ var (
 func init() {
 	flag.Parse()
 
-	// Set up logging to console
 	output := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}
 	log.Logger = zerolog.New(output).With().Timestamp().Logger()
 
-	// Override command line flags with environment variables if set
 	if os.Getenv("ADDRESS") != "" {
 		*address = os.Getenv("ADDRESS")
 	}
@@ -159,7 +156,6 @@ func main() {
 	}
 	s.routes()
 
-	// Store waDB in a package-level variable or in a context
 	container = waDB
 
 	s.connectOnStartup()
@@ -169,9 +165,9 @@ func main() {
 
 	var srv *http.Server
 
-	addr := *address + ":" + *port
-	if *address == "" {
-		addr = ":" + *port
+	addr := ":" + *port
+	if *address != "" {
+		addr = *address + ":" + *port
 	}
 
 	srv = &http.Server{
