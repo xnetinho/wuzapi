@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"github.com/rs/zerolog/log"
 )
 
 func Find(slice []string, val string) bool {
