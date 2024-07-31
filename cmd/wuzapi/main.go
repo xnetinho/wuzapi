@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"database/sql"
 	"flag"
@@ -19,9 +18,9 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/patrickmn/go-cache"
 	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"go.mau.fi/whatsmeow/store/sqlstore"
 	waLog "go.mau.fi/whatsmeow/util/log"
-	"gopkg.in/natefinch/lumberjack.v2"
 	_ "modernc.org/sqlite"
 )
 
@@ -33,8 +32,7 @@ type server struct {
 
 var (
 	// Flags that can be set via command line
-
-	address    = flag.String("address", "0.0.0.0", "Bind IP Address")
+	address    = flag.String("address", "", "Bind IP Address")
 	port       = flag.String("port", "8080", "Listen Port")
 	waDebug    = flag.String("wadebug", "", "Enable whatsmeow debug (INFO or DEBUG)")
 	logType    = flag.String("logtype", "console", "Type of log output (console or json)")
@@ -42,63 +40,41 @@ var (
 	sslprivkey = flag.String("sslprivatekey", "", "SSL Certificate Private Key File")
 	adminToken = flag.String("admintoken", "", "Security Token to authorize admin actions (list/create/remove users)")
 
-	configFile  = flag.String("config", "/etc/wuzapi/config", "Path to the configuration file")
-	postgresCfg = flag.String("postgresconfig", "/etc/wuzapi/postgres_config", "Path to the PostgreSQL configuration file")
-
 	dbType        string
 	container     *sqlstore.Container
 	killchannel   = make(map[int](chan bool))
 	userinfocache = cache.New(5*time.Minute, 10*time.Minute)
-	log           zerolog.Logger
 )
-
-// Config represents the parsed configuration data
-type Config map[string]string
-
-// ParseConfigFile parses the configuration file with the specified filename
-func ParseConfigFile(filename string) (Config, error) {
-	file, err := os.Open(filename)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open file: %w", err)
-	}
-	defer file.Close()
-
-	config := make(Config)
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := scanner.Text()
-		parts := strings.SplitN(line, "=", 2)
-		if len(parts) == 2 {
-			key := strings.TrimSpace(parts[0])
-			value := strings.TrimSpace(parts[1])
-			config[key] = value
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("error reading file: %w", err)
-	}
-
-	return config, nil
-}
 
 func init() {
 	flag.Parse()
 
-	// Set up logging to file
-	logPath := "/var/log/wuzapi/wuzapi.log"
-	if os.Getenv("WUZAPI_LOG_PATH") != "" {
-		logPath = os.Getenv("WUZAPI_LOG_PATH")
-	}
+	// Set up logging to console
+	output := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}
+	log.Logger = zerolog.New(output).With().Timestamp().Logger()
 
-	logFile := &lumberjack.Logger{
-		Filename:   logPath,
-		MaxSize:    10, // megabytes
-		MaxBackups: 3,
-		MaxAge:     28, // days
+	// Override command line flags with environment variables if set
+	if os.Getenv("ADDRESS") != "" {
+		*address = os.Getenv("ADDRESS")
 	}
-
-	log = zerolog.New(logFile).With().Timestamp().Str("role", filepath.Base(os.Args[0])).Logger()
+	if os.Getenv("PORT") != "" {
+		*port = os.Getenv("PORT")
+	}
+	if os.Getenv("WADEBUG") != "" {
+		*waDebug = os.Getenv("WADEBUG")
+	}
+	if os.Getenv("LOGTYPE") != "" {
+		*logType = os.Getenv("LOGTYPE")
+	}
+	if os.Getenv("SSLCERT") != "" {
+		*sslcert = os.Getenv("SSLCERT")
+	}
+	if os.Getenv("SSLPRIVKEY") != "" {
+		*sslprivkey = os.Getenv("SSLPRIVKEY")
+	}
+	if os.Getenv("ADMINTOKEN") != "" {
+		*adminToken = os.Getenv("ADMINTOKEN")
+	}
 }
 
 func main() {
@@ -108,19 +84,22 @@ func main() {
 	}
 	exPath := filepath.Dir(ex)
 
-	config, err := ParseConfigFile(*configFile)
-	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to read configuration file")
+	dbType = os.Getenv("DB_TYPE")
+	if dbType == "" {
+		log.Fatal().Msg("DB_TYPE environment variable is not set")
 	}
 
-	dbType = config["DB_TYPE"]
 	var appDB *sql.DB
 	var waDB *sqlstore.Container
 
 	switch dbType {
 	case "sqlite3":
-		appDBPath := config["APP_DB_PATH"]
-		waDBPath := config["WA_DB_PATH"]
+		appDBPath := os.Getenv("APP_DB_PATH")
+		waDBPath := os.Getenv("WA_DB_PATH")
+
+		if appDBPath == "" || waDBPath == "" {
+			log.Fatal().Msg("APP_DB_PATH or WA_DB_PATH environment variable is not set")
+		}
 
 		appDB, err = sql.Open("sqlite", "file:"+appDBPath+"?_foreign_keys=on")
 		if err != nil {
@@ -138,15 +117,20 @@ func main() {
 		}
 
 	case "postgresql":
-		pgConfig, err := ParseConfigFile(*postgresCfg)
-		if err != nil {
-			log.Fatal().Err(err).Msg("Failed to read PostgreSQL configuration file")
+		host := os.Getenv("POSTGRES_HOST")
+		user := os.Getenv("POSTGRES_USER")
+		password := os.Getenv("POSTGRES_PASSWORD")
+		appDatabase := os.Getenv("POSTGRES_APP_DATABASE")
+		waDatabase := os.Getenv("POSTGRES_WA_DATABASE")
+
+		if host == "" || user == "" || password == "" || appDatabase == "" || waDatabase == "" {
+			log.Fatal().Msg("PostgreSQL environment variables are not set properly")
 		}
 
 		appConnectionString := fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=disable",
-			pgConfig["HOST"], pgConfig["USER"], pgConfig["PASSWORD"], pgConfig["APP_DATABASE"])
+			host, user, password, appDatabase)
 		waConnectionString := fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=disable",
-			pgConfig["HOST"], pgConfig["USER"], pgConfig["PASSWORD"], pgConfig["WA_DATABASE"])
+			host, user, password, waDatabase)
 
 		appDB, err = sql.Open("postgres", appConnectionString)
 		if err != nil {
@@ -185,27 +169,27 @@ func main() {
 
 	var srv *http.Server
 
-	if *sslcert != "" && *sslprivkey != "" {
-		srv = &http.Server{
-			Addr:    *address + ":" + *port,
-			Handler: s.router,
-		}
-		go func() {
+	addr := *address + ":" + *port
+	if *address == "" {
+		addr = ":" + *port
+	}
+
+	srv = &http.Server{
+		Addr:    addr,
+		Handler: s.router,
+	}
+
+	go func() {
+		if *sslcert != "" && *sslprivkey != "" {
 			if err := srv.ListenAndServeTLS(*sslcert, *sslprivkey); err != nil && err != http.ErrServerClosed {
 				log.Fatal().Err(err).Msg("Server startup failed")
 			}
-		}()
-	} else {
-		srv = &http.Server{
-			Addr:    *address + ":" + *port,
-			Handler: s.router,
-		}
-		go func() {
+		} else {
 			if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 				log.Fatal().Err(err).Msg("Server startup failed")
 			}
-		}()
-	}
+		}
+	}()
 
 	log.Info().Str("address", *address).Str("port", *port).Msg("Server started")
 
