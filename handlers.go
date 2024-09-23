@@ -3162,6 +3162,65 @@ func (s *server) SetGroupName() http.HandlerFunc {
 	}
 }
 
+// Set group topic (description)
+func (s *server) SetGroupTopic() http.HandlerFunc {
+
+	type setGroupTopicStruct struct {
+		GroupJID string
+		Topic    string
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		txtid := r.Context().Value("userinfo").(Values).Get("Id")
+		userid, _ := strconv.Atoi(txtid)
+
+		if clientPointer[userid] == nil {
+			s.Respond(w, r, http.StatusInternalServerError, errors.New("No session"))
+			return
+		}
+
+		decoder := json.NewDecoder(r.Body)
+		var t setGroupTopicStruct
+		err := decoder.Decode(&t)
+		if err != nil {
+			s.Respond(w, r, http.StatusBadRequest, errors.New("Could not decode Payload"))
+			return
+		}
+
+		group, ok := parseJID(t.GroupJID)
+		if !ok {
+			s.Respond(w, r, http.StatusBadRequest, errors.New("Could not parse Group JID"))
+			return
+		}
+
+		if t.Topic == "" {
+			s.Respond(w, r, http.StatusBadRequest, errors.New("Missing Topic in Payload"))
+			return
+		}
+
+		err = clientPointer[userid].SetGroupTopic(group, "", "", t.Topic)
+
+		if err != nil {
+			log.Error().Str("error", fmt.Sprintf("%v", err)).Msg("Failed to set group topic")
+			msg := fmt.Sprintf("Failed to set group topic: %v", err)
+			s.Respond(w, r, http.StatusInternalServerError, msg)
+			return
+		}
+
+		response := map[string]interface{}{"Details": "Group Topic set successfully"}
+		responseJson, err := json.Marshal(response)
+
+		if err != nil {
+			s.Respond(w, r, http.StatusInternalServerError, err)
+		} else {
+			s.Respond(w, r, http.StatusOK, string(responseJson))
+		}
+
+		return
+	}
+}
+
 // add, remove, promote and demote members group
 func (s *server) UpdateGroupParticipants() http.HandlerFunc {
 

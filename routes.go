@@ -95,6 +95,7 @@ func (s *server) routes() {
 	s.router.Handle("/group/inviteinfo", c.Then(s.GetGroupInviteInfo())).Methods("POST")
 	s.router.Handle("/group/photo", c.Then(s.SetGroupPhoto())).Methods("POST")
 	s.router.Handle("/group/name", c.Then(s.SetGroupName())).Methods("POST")
+	s.router.Handle("/group/topic", c.Then(s.SetGroupTopic())).Methods("POST")
 	s.router.Handle("/group/updateparticipants", c.Then(s.UpdateGroupParticipants())).Methods("POST")
 	s.router.Handle("/group/announce", c.Then(s.SetGroupAnnounce())).Methods("POST")
 	s.router.Handle("/group/join", c.Then(s.GroupJoin())).Methods("POST")
