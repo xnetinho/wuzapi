@@ -2978,6 +2978,52 @@ func (s *server) GetGroupInviteLink() http.HandlerFunc {
 	}
 }
 
+// Get group invite info
+func (s *server) GetGroupInviteInfo() http.HandlerFunc {
+
+	type getGroupInviteInfoStruct struct {
+		code string
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		txtid := r.Context().Value("userinfo").(Values).Get("Id")
+		userid, _ := strconv.Atoi(txtid)
+
+		if clientPointer[userid] == nil {
+			s.Respond(w, r, http.StatusInternalServerError, errors.New("No session"))
+			return
+		}
+
+		// Get code from query parameter
+		inviteCode := r.URL.Query().Get("code")
+		if inviteCode == "" {
+			s.Respond(w, r, http.StatusBadRequest, errors.New("Missing code parameter"))
+			return
+		}
+
+		resp, err := clientPointer[userid].GetGroupInfoFromLink(inviteCode)
+
+		if err != nil {
+			log.Error().Str("error", fmt.Sprintf("%v", err)).Msg("Failed to get group invite info")
+			msg := fmt.Sprintf("Failed to get group invite info: %v", err)
+			s.Respond(w, r, http.StatusInternalServerError, msg)
+			return
+		}
+
+		response := map[string]interface{}{"InviteInfo": resp}
+		responseJson, err := json.Marshal(response)
+
+		if err != nil {
+			s.Respond(w, r, http.StatusInternalServerError, err)
+		} else {
+			s.Respond(w, r, http.StatusOK, string(responseJson))
+		}
+
+		return
+	}
+}
+
 // Set group photo
 func (s *server) SetGroupPhoto() http.HandlerFunc {
 
