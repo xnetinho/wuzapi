@@ -3303,6 +3303,59 @@ func (s *server) SetGroupAnnounce() http.HandlerFunc {
 	}
 }
 
+// SetGroupAnnounce post
+func (s *server) GroupLeave() http.HandlerFunc {
+
+	type groupLeaveStruct struct {
+		GroupJID string
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		txtid := r.Context().Value("userinfo").(Values).Get("Id")
+		userid, _ := strconv.Atoi(txtid)
+
+		if clientPointer[userid] == nil {
+			s.Respond(w, r, http.StatusInternalServerError, errors.New("No session"))
+			return
+		}
+
+		decoder := json.NewDecoder(r.Body)
+		var t groupLeaveStruct
+		err := decoder.Decode(&t)
+		if err != nil {
+			s.Respond(w, r, http.StatusBadRequest, errors.New("Could not decode Payload"))
+			return
+		}
+
+		group, ok := parseJID(t.GroupJID)
+		if !ok {
+			s.Respond(w, r, http.StatusBadRequest, errors.New("Could not parse Group JID"))
+			return
+		}
+
+		err = clientPointer[userid].LeaveGroup(group)
+
+		if err != nil {
+			log.Error().Str("error", fmt.Sprintf("%v", err)).Msg("Failed to leave group")
+			msg := fmt.Sprintf("Failed to leave group: %v", err)
+			s.Respond(w, r, http.StatusInternalServerError, msg)
+			return
+		}
+
+		response := map[string]interface{}{"Details": "Group left successfully"}
+		responseJson, err := json.Marshal(response)
+
+		if err != nil {
+			s.Respond(w, r, http.StatusInternalServerError, err)
+		} else {
+			s.Respond(w, r, http.StatusOK, string(responseJson))
+		}
+
+		return
+	}
+}
+
 // Admin List users
 func (s *server) ListUsers() http.HandlerFunc {
 
