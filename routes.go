@@ -63,6 +63,7 @@ func (s *server) routes() {
 	s.router.Handle("/webhook", c.Then(s.GetWebhook())).Methods("GET")
 
 	s.router.Handle("/chat/send/text", c.Then(s.SendMessage())).Methods("POST")
+	s.router.Handle("/chat/send/edit", c.Then(s.SendEditMessage())).Methods("POST")
 	s.router.Handle("/chat/send/image", c.Then(s.SendImage())).Methods("POST")
 	s.router.Handle("/chat/send/audio", c.Then(s.SendAudio())).Methods("POST")
 	s.router.Handle("/chat/send/document", c.Then(s.SendDocument())).Methods("POST")
