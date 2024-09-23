@@ -2982,7 +2982,7 @@ func (s *server) GetGroupInviteLink() http.HandlerFunc {
 func (s *server) GetGroupInviteInfo() http.HandlerFunc {
 
 	type getGroupInviteInfoStruct struct {
-		code string
+		Code string
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -2995,14 +2995,20 @@ func (s *server) GetGroupInviteInfo() http.HandlerFunc {
 			return
 		}
 
-		// Get code from query parameter
-		inviteCode := r.URL.Query().Get("code")
-		if inviteCode == "" {
-			s.Respond(w, r, http.StatusBadRequest, errors.New("Missing code parameter"))
+		decoder := json.NewDecoder(r.Body)
+		var t getGroupInviteInfoStruct
+		err := decoder.Decode(&t)
+		if err != nil {
+			s.Respond(w, r, http.StatusBadRequest, errors.New("Could not decode Payload"))
 			return
 		}
 
-		resp, err := clientPointer[userid].GetGroupInfoFromLink(inviteCode)
+		if t.Code == "" {
+			s.Respond(w, r, http.StatusBadRequest, errors.New("Missing Code in Payload"))
+			return
+		}
+
+		groupInfo, err := clientPointer[userid].GetGroupInfoFromLink(t.Code)
 
 		if err != nil {
 			log.Error().Str("error", fmt.Sprintf("%v", err)).Msg("Failed to get group invite info")
@@ -3011,8 +3017,7 @@ func (s *server) GetGroupInviteInfo() http.HandlerFunc {
 			return
 		}
 
-		response := map[string]interface{}{"InviteInfo": resp}
-		responseJson, err := json.Marshal(response)
+		responseJson, err := json.Marshal(groupInfo)
 
 		if err != nil {
 			s.Respond(w, r, http.StatusInternalServerError, err)
@@ -3291,6 +3296,58 @@ func (s *server) SetGroupAnnounce() http.HandlerFunc {
 		}
 
 		response := map[string]interface{}{"Details": "Group Announce set successfully"}
+		responseJson, err := json.Marshal(response)
+
+		if err != nil {
+			s.Respond(w, r, http.StatusInternalServerError, err)
+		} else {
+			s.Respond(w, r, http.StatusOK, string(responseJson))
+		}
+
+		return
+	}
+}
+
+// Join group invite link
+func (s *server) GroupJoin() http.HandlerFunc {
+
+	type joinGroupStruct struct {
+		Code string
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		txtid := r.Context().Value("userinfo").(Values).Get("Id")
+		userid, _ := strconv.Atoi(txtid)
+
+		if clientPointer[userid] == nil {
+			s.Respond(w, r, http.StatusInternalServerError, errors.New("No session"))
+			return
+		}
+
+		decoder := json.NewDecoder(r.Body)
+		var t joinGroupStruct
+		err := decoder.Decode(&t)
+		if err != nil {
+			s.Respond(w, r, http.StatusBadRequest, errors.New("Could not decode Payload"))
+			return
+		}
+
+		if t.Code == "" {
+			s.Respond(w, r, http.StatusBadRequest, errors.New("Missing Code in Payload"))
+			return
+		}
+
+		_, err = clientPointer[userid].JoinGroupWithLink(t.Code)
+
+		if err != nil {
+			log.Error().Str("error", fmt.Sprintf("%v", err)).Msg("Failed to join group")
+			msg := fmt.Sprintf("Failed to join group: %v", err)
+			s.Respond(w, r, http.StatusInternalServerError, msg)
+			return
+		}
+
+		response := map[string]interface{}{"Details": "Group joined successfully"}
 		responseJson, err := json.Marshal(response)
 
 		if err != nil {
