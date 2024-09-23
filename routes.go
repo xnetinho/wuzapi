@@ -94,6 +94,7 @@ func (s *server) routes() {
 	s.router.Handle("/group/invitelink", c.Then(s.GetGroupInviteLink())).Methods("GET")
 	s.router.Handle("/group/photo", c.Then(s.SetGroupPhoto())).Methods("POST")
 	s.router.Handle("/group/name", c.Then(s.SetGroupName())).Methods("POST")
+	s.router.Handle("/group/updateparticipants", c.Then(s.UpdateGroupParticipants())).Methods("POST")
 
 	s.router.PathPrefix("/").Handler(http.FileServer(http.Dir(exPath+"/static/")))
 }

@@ -3111,6 +3111,98 @@ func (s *server) SetGroupName() http.HandlerFunc {
 	}
 }
 
+// add, remove, promote and demote members group
+func (s *server) UpdateGroupParticipants() http.HandlerFunc {
+
+	type updateGroupParticipantsStruct struct {
+		GroupJID string
+		Phone []string
+		// Action string // add, remove, promote, demote
+		Action string
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		txtid := r.Context().Value("userinfo").(Values).Get("Id")
+		userid, _ := strconv.Atoi(txtid)
+
+		if clientPointer[userid] == nil {
+			s.Respond(w, r, http.StatusInternalServerError, errors.New("No session"))
+			return
+		}
+
+		decoder := json.NewDecoder(r.Body)
+		var t updateGroupParticipantsStruct
+		err := decoder.Decode(&t)
+		if err != nil {
+			s.Respond(w, r, http.StatusBadRequest, errors.New("Could not decode Payload"))
+			return
+		}
+
+		group, ok := parseJID(t.GroupJID)
+		if !ok {
+			s.Respond(w, r, http.StatusBadRequest, errors.New("Could not parse Group JID"))
+			return
+		}
+
+		if len(t.Phone) < 1 {
+			s.Respond(w, r, http.StatusBadRequest, errors.New("Missing Phone in Payload"))
+			return
+		}
+		// parse phone numbers
+		phoneParsed := make([]types.JID, len(t.Phone))
+		for i, phone := range t.Phone {
+			phoneParsed[i], ok = parseJID(phone)
+			if !ok {
+				s.Respond(w, r, http.StatusBadRequest, errors.New("Could not parse Phone"))
+				return
+			}
+		}
+
+		if t.Action == "" {
+			s.Respond(w, r, http.StatusBadRequest, errors.New("Missing Action in Payload"))
+			return
+		}
+
+		// parse action
+
+		var action whatsmeow.ParticipantChange
+		switch t.Action {
+		case "add":
+			action = "add"
+		case "remove":
+			action = "remove"
+		case "promote":
+			action = "promote"
+		case "demote":
+			action = "demote"
+		default:
+			s.Respond(w, r, http.StatusBadRequest, errors.New("Invalid Action in Payload"))
+			return
+		}
+
+		_, err = clientPointer[userid].UpdateGroupParticipants(group, phoneParsed, action)
+
+		if err != nil {
+			log.Error().Str("error", fmt.Sprintf("%v", err)).Msg("Failed to change participant group")
+			msg := fmt.Sprintf("Failed to change participant group: %v", err)
+			s.Respond(w, r, http.StatusInternalServerError, msg)
+			return
+		}
+
+		response := map[string]interface{}{"Details": "Group Participants updated successfully"}
+		responseJson, err := json.Marshal(response)
+
+		if err != nil {
+			s.Respond(w, r, http.StatusInternalServerError, err)
+		} else {
+			s.Respond(w, r, http.StatusOK, string(responseJson))
+		}
+
+		return
+	}
+}
+
 // Admin List users
 func (s *server) ListUsers() http.HandlerFunc {
 
