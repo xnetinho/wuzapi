@@ -67,6 +67,8 @@ func (s *server) routes() {
 
 
 	s.router.Handle("/chat/send/text", c.Then(s.SendMessage())).Methods("POST")
+	s.router.Handle("/chat/send/edit", c.Then(s.SendEditMessage())).Methods("POST")
+	s.router.Handle("/chat/send/delete", c.Then(s.SendDeleteMessage())).Methods("POST")
 	s.router.Handle("/chat/send/image", c.Then(s.SendImage())).Methods("POST")
 	s.router.Handle("/chat/send/audio", c.Then(s.SendAudio())).Methods("POST")
 	s.router.Handle("/chat/send/document", c.Then(s.SendDocument())).Methods("POST")
@@ -94,8 +96,14 @@ func (s *server) routes() {
 	s.router.Handle("/group/list", c.Then(s.ListGroups())).Methods("GET")
 	s.router.Handle("/group/info", c.Then(s.GetGroupInfo())).Methods("GET")
 	s.router.Handle("/group/invitelink", c.Then(s.GetGroupInviteLink())).Methods("GET")
+	s.router.Handle("/group/inviteinfo", c.Then(s.GetGroupInviteInfo())).Methods("POST")
 	s.router.Handle("/group/photo", c.Then(s.SetGroupPhoto())).Methods("POST")
 	s.router.Handle("/group/name", c.Then(s.SetGroupName())).Methods("POST")
+	s.router.Handle("/group/topic", c.Then(s.SetGroupTopic())).Methods("POST")
+	s.router.Handle("/group/updateparticipants", c.Then(s.UpdateGroupParticipants())).Methods("POST")
+	s.router.Handle("/group/announce", c.Then(s.SetGroupAnnounce())).Methods("POST")
+	s.router.Handle("/group/join", c.Then(s.GroupJoin())).Methods("POST")
+	s.router.Handle("/group/leave", c.Then(s.GroupLeave())).Methods("POST")
 
 	s.router.PathPrefix("/").Handler(http.FileServer(http.Dir(exPath+"/static/")))
 }

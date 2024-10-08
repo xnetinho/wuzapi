@@ -734,6 +734,12 @@ func (s *server) SendDocument() http.HandlerFunc {
 				QuotedMessage: &waProto.Message{Conversation: proto.String("")},
 			}
 		}
+		if(t.ContextInfo.MentionedJID != nil) {
+			if(msg.ExtendedTextMessage.ContextInfo == nil) {
+				msg.ExtendedTextMessage.ContextInfo = &waProto.ContextInfo{}
+			}
+			msg.ExtendedTextMessage.ContextInfo.MentionedJID = t.ContextInfo.MentionedJID
+		}
 
 		resp, err = clientPointer[userid].SendMessage(context.Background(), recipient, msg, whatsmeow.SendRequestExtra{ID: msgid})
 		if err != nil {
@@ -849,6 +855,12 @@ func (s *server) SendAudio() http.HandlerFunc {
 				Participant:   proto.String(*t.ContextInfo.Participant),
 				QuotedMessage: &waProto.Message{Conversation: proto.String("")},
 			}
+		}
+		if(t.ContextInfo.MentionedJID != nil) {
+			if(msg.ExtendedTextMessage.ContextInfo == nil) {
+				msg.ExtendedTextMessage.ContextInfo = &waProto.ContextInfo{}
+			}
+			msg.ExtendedTextMessage.ContextInfo.MentionedJID = t.ContextInfo.MentionedJID
 		}
 
 		resp, err = clientPointer[userid].SendMessage(context.Background(), recipient, msg, whatsmeow.SendRequestExtra{ID: msgid})
@@ -996,6 +1008,12 @@ func (s *server) SendImage() http.HandlerFunc {
 				QuotedMessage: &waProto.Message{Conversation: proto.String("")},
 			}
 		}
+		if(t.ContextInfo.MentionedJID != nil) {
+			if(msg.ExtendedTextMessage.ContextInfo == nil) {
+				msg.ExtendedTextMessage.ContextInfo = &waProto.ContextInfo{}
+			}
+			msg.ExtendedTextMessage.ContextInfo.MentionedJID = t.ContextInfo.MentionedJID
+		}
 
 		resp, err = clientPointer[userid].SendMessage(context.Background(), recipient, msg, whatsmeow.SendRequestExtra{ID: msgid})
 		if err != nil {
@@ -1107,6 +1125,12 @@ func (s *server) SendSticker() http.HandlerFunc {
 				Participant:   proto.String(*t.ContextInfo.Participant),
 				QuotedMessage: &waProto.Message{Conversation: proto.String("")},
 			}
+		}
+		if(t.ContextInfo.MentionedJID != nil) {
+			if(msg.ExtendedTextMessage.ContextInfo == nil) {
+				msg.ExtendedTextMessage.ContextInfo = &waProto.ContextInfo{}
+			}
+			msg.ExtendedTextMessage.ContextInfo.MentionedJID = t.ContextInfo.MentionedJID
 		}
 
 		resp, err = clientPointer[userid].SendMessage(context.Background(), recipient, msg, whatsmeow.SendRequestExtra{ID: msgid})
@@ -1222,6 +1246,12 @@ func (s *server) SendVideo() http.HandlerFunc {
 				QuotedMessage: &waProto.Message{Conversation: proto.String("")},
 			}
 		}
+		if(t.ContextInfo.MentionedJID != nil) {
+			if(msg.ExtendedTextMessage.ContextInfo == nil) {
+				msg.ExtendedTextMessage.ContextInfo = &waProto.ContextInfo{}
+			}
+			msg.ExtendedTextMessage.ContextInfo.MentionedJID = t.ContextInfo.MentionedJID
+		}
 
 		resp, err = clientPointer[userid].SendMessage(context.Background(), recipient, msg, whatsmeow.SendRequestExtra{ID: msgid})
 		if err != nil {
@@ -1309,6 +1339,12 @@ func (s *server) SendContact() http.HandlerFunc {
 				Participant:   proto.String(*t.ContextInfo.Participant),
 				QuotedMessage: &waProto.Message{Conversation: proto.String("")},
 			}
+		}
+		if(t.ContextInfo.MentionedJID != nil) {
+			if(msg.ExtendedTextMessage.ContextInfo == nil) {
+				msg.ExtendedTextMessage.ContextInfo = &waProto.ContextInfo{}
+			}
+			msg.ExtendedTextMessage.ContextInfo.MentionedJID = t.ContextInfo.MentionedJID
 		}
 
 		resp, err = clientPointer[userid].SendMessage(context.Background(), recipient, msg, whatsmeow.SendRequestExtra{ID: msgid})
@@ -1399,6 +1435,12 @@ func (s *server) SendLocation() http.HandlerFunc {
 				Participant:   proto.String(*t.ContextInfo.Participant),
 				QuotedMessage: &waProto.Message{Conversation: proto.String("")},
 			}
+		}
+		if(t.ContextInfo.MentionedJID != nil) {
+			if(msg.ExtendedTextMessage.ContextInfo == nil) {
+				msg.ExtendedTextMessage.ContextInfo = &waProto.ContextInfo{}
+			}
+			msg.ExtendedTextMessage.ContextInfo.MentionedJID = t.ContextInfo.MentionedJID
 		}
 
 		resp, err = clientPointer[userid].SendMessage(context.Background(), recipient, msg, whatsmeow.SendRequestExtra{ID: msgid})
@@ -1735,6 +1777,12 @@ func (s *server) SendMessage() http.HandlerFunc {
 				QuotedMessage: &waProto.Message{Conversation: proto.String("")},
 			}
 		}
+		if(t.ContextInfo.MentionedJID != nil) {
+			if(msg.ExtendedTextMessage.ContextInfo == nil) {
+				msg.ExtendedTextMessage.ContextInfo = &waProto.ContextInfo{}
+			}
+			msg.ExtendedTextMessage.ContextInfo.MentionedJID = t.ContextInfo.MentionedJID
+		}
 
 		resp, err = clientPointer[userid].SendMessage(context.Background(), recipient, msg, whatsmeow.SendRequestExtra{ID: msgid})
 		if err != nil {
@@ -1743,6 +1791,178 @@ func (s *server) SendMessage() http.HandlerFunc {
 		}
 
 		log.Info().Str("timestamp", fmt.Sprintf("%d", resp.Timestamp)).Str("id", msgid).Msg("Message sent")
+		response := map[string]interface{}{"Details": "Sent", "Timestamp": resp.Timestamp, "Id": msgid}
+		responseJson, err := json.Marshal(response)
+		if err != nil {
+			s.Respond(w, r, http.StatusInternalServerError, err)
+		} else {
+			s.Respond(w, r, http.StatusOK, string(responseJson))
+		}
+
+		return
+	}
+}
+
+// Sends a edit text message
+func (s *server) SendEditMessage() http.HandlerFunc {
+
+	type editStruct struct {
+		Phone       string
+		Body        string
+		Id          string
+		ContextInfo waProto.ContextInfo
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		
+		txtid := r.Context().Value("userinfo").(Values).Get("Id")
+		userid, _ := strconv.Atoi(txtid)
+
+		if clientPointer[userid] == nil {
+			s.Respond(w, r, http.StatusInternalServerError, errors.New("No session"))
+			return
+		}
+
+		msgid := ""
+		var resp whatsmeow.SendResponse
+
+		decoder := json.NewDecoder(r.Body)
+		var t editStruct
+		err := decoder.Decode(&t)
+		if err != nil {
+			s.Respond(w, r, http.StatusBadRequest, errors.New("Could not decode Payload"))
+			return
+		}
+
+		if t.Phone == "" {
+			s.Respond(w, r, http.StatusBadRequest, errors.New("Missing Phone in Payload"))
+			return
+		}
+
+		if t.Body == "" {
+			s.Respond(w, r, http.StatusBadRequest, errors.New("Missing Body in Payload"))
+			return
+		}
+
+		recipient, err := validateMessageFields(t.Phone, t.ContextInfo.StanzaID, t.ContextInfo.Participant)
+		if err != nil {
+			log.Error().Msg(fmt.Sprintf("%s", err))
+			s.Respond(w, r, http.StatusBadRequest, err)
+			return
+		}
+
+		if t.Id == "" {
+			s.Respond(w, r, http.StatusBadRequest, errors.New("Missing Id in Payload"))
+			return
+		} else {
+			msgid = t.Id
+		}
+
+		msg := &waProto.Message{
+			ExtendedTextMessage: &waProto.ExtendedTextMessage{
+				Text: &t.Body,
+			},
+		}
+
+		if t.ContextInfo.StanzaID != nil {
+			msg.ExtendedTextMessage.ContextInfo = &waProto.ContextInfo{
+				StanzaID:      proto.String(*t.ContextInfo.StanzaID),
+				Participant:   proto.String(*t.ContextInfo.Participant),
+				QuotedMessage: &waProto.Message{Conversation: proto.String("")},
+			}
+		}
+		if(t.ContextInfo.MentionedJID != nil) {
+			if(msg.ExtendedTextMessage.ContextInfo == nil) {
+				msg.ExtendedTextMessage.ContextInfo = &waProto.ContextInfo{}
+			}
+			msg.ExtendedTextMessage.ContextInfo.MentionedJID = t.ContextInfo.MentionedJID
+		}
+
+		resp, err = clientPointer[userid].SendMessage(context.Background(), recipient, clientPointer[userid].BuildEdit(recipient, msgid, msg))
+		if err != nil {
+			s.Respond(w, r, http.StatusInternalServerError, errors.New(fmt.Sprintf("Error sending edit message: %v", err)))
+			return
+		}
+
+		log.Info().Str("timestamp", fmt.Sprintf("%d", resp.Timestamp)).Str("id", msgid).Msg("Message edit sent")
+		response := map[string]interface{}{"Details": "Sent", "Timestamp": resp.Timestamp, "Id": msgid}
+		responseJson, err := json.Marshal(response)
+		if err != nil {
+			s.Respond(w, r, http.StatusInternalServerError, err)
+		} else {
+			s.Respond(w, r, http.StatusOK, string(responseJson))
+		}
+
+		return
+	}
+}
+
+// Sends a delete message
+func (s *server) SendDeleteMessage() http.HandlerFunc {
+
+	type deleteStruct struct {
+		Chat 	 	string
+		Phone       string
+		Id          string
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		
+		txtid := r.Context().Value("userinfo").(Values).Get("Id")
+		userid, _ := strconv.Atoi(txtid)
+
+		if clientPointer[userid] == nil {
+			s.Respond(w, r, http.StatusInternalServerError, errors.New("No session"))
+			return
+		}
+
+		msgid := ""
+		var resp whatsmeow.SendResponse
+
+		decoder := json.NewDecoder(r.Body)
+		var t deleteStruct
+		err := decoder.Decode(&t)
+		if err != nil {
+			s.Respond(w, r, http.StatusBadRequest, errors.New("Could not decode Payload"))
+			return
+		}
+
+		if t.Chat == "" {
+			s.Respond(w, r, http.StatusBadRequest, errors.New("Missing Chat in Payload"))
+			return
+		}
+
+		if t.Phone == "" {
+			s.Respond(w, r, http.StatusBadRequest, errors.New("Missing Phone in Payload"))
+			return
+		}
+
+		chat, ok := parseJID(t.Chat)
+		if !ok {
+			s.Respond(w, r, http.StatusBadRequest, errors.New("Could not parse Chat"))
+			return
+		}
+
+		phone, ok := parseJID(t.Phone)
+		if !ok {
+			s.Respond(w, r, http.StatusBadRequest, errors.New("Could not parse Phone"))
+			return
+		}
+
+		if t.Id == "" {
+			s.Respond(w, r, http.StatusBadRequest, errors.New("Missing Id in Payload"))
+			return
+		} else {
+			msgid = t.Id
+		}
+
+		resp, err = clientPointer[userid].SendMessage(context.Background(), chat, clientPointer[userid].BuildRevoke(chat, phone, msgid))
+		if err != nil {
+			s.Respond(w, r, http.StatusInternalServerError, errors.New(fmt.Sprintf("Error sending delete message: %v", err)))
+			return
+		}
+
+		log.Info().Str("timestamp", fmt.Sprintf("%d", resp.Timestamp)).Str("id", msgid).Msg("Message delete sent")
 		response := map[string]interface{}{"Details": "Sent", "Timestamp": resp.Timestamp, "Id": msgid}
 		responseJson, err := json.Marshal(response)
 		if err != nil {
@@ -2836,6 +3056,57 @@ func (s *server) GetGroupInviteLink() http.HandlerFunc {
 	}
 }
 
+// Get group invite info
+func (s *server) GetGroupInviteInfo() http.HandlerFunc {
+
+	type getGroupInviteInfoStruct struct {
+		Code string
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		txtid := r.Context().Value("userinfo").(Values).Get("Id")
+		userid, _ := strconv.Atoi(txtid)
+
+		if clientPointer[userid] == nil {
+			s.Respond(w, r, http.StatusInternalServerError, errors.New("No session"))
+			return
+		}
+
+		decoder := json.NewDecoder(r.Body)
+		var t getGroupInviteInfoStruct
+		err := decoder.Decode(&t)
+		if err != nil {
+			s.Respond(w, r, http.StatusBadRequest, errors.New("Could not decode Payload"))
+			return
+		}
+
+		if t.Code == "" {
+			s.Respond(w, r, http.StatusBadRequest, errors.New("Missing Code in Payload"))
+			return
+		}
+
+		groupInfo, err := clientPointer[userid].GetGroupInfoFromLink(t.Code)
+
+		if err != nil {
+			log.Error().Str("error", fmt.Sprintf("%v", err)).Msg("Failed to get group invite info")
+			msg := fmt.Sprintf("Failed to get group invite info: %v", err)
+			s.Respond(w, r, http.StatusInternalServerError, msg)
+			return
+		}
+
+		responseJson, err := json.Marshal(groupInfo)
+
+		if err != nil {
+			s.Respond(w, r, http.StatusInternalServerError, err)
+		} else {
+			s.Respond(w, r, http.StatusOK, string(responseJson))
+		}
+
+		return
+	}
+}
+
 // Set group photo
 func (s *server) SetGroupPhoto() http.HandlerFunc {
 
@@ -2957,6 +3228,316 @@ func (s *server) SetGroupName() http.HandlerFunc {
 		}
 
 		response := map[string]interface{}{"Details": "Group Name set successfully"}
+		responseJson, err := json.Marshal(response)
+
+		if err != nil {
+			s.Respond(w, r, http.StatusInternalServerError, err)
+		} else {
+			s.Respond(w, r, http.StatusOK, string(responseJson))
+		}
+
+		return
+	}
+}
+
+// Set group topic (description)
+func (s *server) SetGroupTopic() http.HandlerFunc {
+
+	type setGroupTopicStruct struct {
+		GroupJID string
+		Topic    string
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		txtid := r.Context().Value("userinfo").(Values).Get("Id")
+		userid, _ := strconv.Atoi(txtid)
+
+		if clientPointer[userid] == nil {
+			s.Respond(w, r, http.StatusInternalServerError, errors.New("No session"))
+			return
+		}
+
+		decoder := json.NewDecoder(r.Body)
+		var t setGroupTopicStruct
+		err := decoder.Decode(&t)
+		if err != nil {
+			s.Respond(w, r, http.StatusBadRequest, errors.New("Could not decode Payload"))
+			return
+		}
+
+		group, ok := parseJID(t.GroupJID)
+		if !ok {
+			s.Respond(w, r, http.StatusBadRequest, errors.New("Could not parse Group JID"))
+			return
+		}
+
+		if t.Topic == "" {
+			s.Respond(w, r, http.StatusBadRequest, errors.New("Missing Topic in Payload"))
+			return
+		}
+
+		err = clientPointer[userid].SetGroupTopic(group, "", "", t.Topic)
+
+		if err != nil {
+			log.Error().Str("error", fmt.Sprintf("%v", err)).Msg("Failed to set group topic")
+			msg := fmt.Sprintf("Failed to set group topic: %v", err)
+			s.Respond(w, r, http.StatusInternalServerError, msg)
+			return
+		}
+
+		response := map[string]interface{}{"Details": "Group Topic set successfully"}
+		responseJson, err := json.Marshal(response)
+
+		if err != nil {
+			s.Respond(w, r, http.StatusInternalServerError, err)
+		} else {
+			s.Respond(w, r, http.StatusOK, string(responseJson))
+		}
+
+		return
+	}
+}
+
+// add, remove, promote and demote members group
+func (s *server) UpdateGroupParticipants() http.HandlerFunc {
+
+	type updateGroupParticipantsStruct struct {
+		GroupJID string
+		Phone []string
+		// Action string // add, remove, promote, demote
+		Action string
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		txtid := r.Context().Value("userinfo").(Values).Get("Id")
+		userid, _ := strconv.Atoi(txtid)
+
+		if clientPointer[userid] == nil {
+			s.Respond(w, r, http.StatusInternalServerError, errors.New("No session"))
+			return
+		}
+
+		decoder := json.NewDecoder(r.Body)
+		var t updateGroupParticipantsStruct
+		err := decoder.Decode(&t)
+		if err != nil {
+			s.Respond(w, r, http.StatusBadRequest, errors.New("Could not decode Payload"))
+			return
+		}
+
+		group, ok := parseJID(t.GroupJID)
+		if !ok {
+			s.Respond(w, r, http.StatusBadRequest, errors.New("Could not parse Group JID"))
+			return
+		}
+
+		if len(t.Phone) < 1 {
+			s.Respond(w, r, http.StatusBadRequest, errors.New("Missing Phone in Payload"))
+			return
+		}
+		// parse phone numbers
+		phoneParsed := make([]types.JID, len(t.Phone))
+		for i, phone := range t.Phone {
+			phoneParsed[i], ok = parseJID(phone)
+			if !ok {
+				s.Respond(w, r, http.StatusBadRequest, errors.New("Could not parse Phone"))
+				return
+			}
+		}
+
+		if t.Action == "" {
+			s.Respond(w, r, http.StatusBadRequest, errors.New("Missing Action in Payload"))
+			return
+		}
+
+		// parse action
+
+		var action whatsmeow.ParticipantChange
+		switch t.Action {
+		case "add":
+			action = "add"
+		case "remove":
+			action = "remove"
+		case "promote":
+			action = "promote"
+		case "demote":
+			action = "demote"
+		default:
+			s.Respond(w, r, http.StatusBadRequest, errors.New("Invalid Action in Payload"))
+			return
+		}
+
+		_, err = clientPointer[userid].UpdateGroupParticipants(group, phoneParsed, action)
+
+		if err != nil {
+			log.Error().Str("error", fmt.Sprintf("%v", err)).Msg("Failed to change participant group")
+			msg := fmt.Sprintf("Failed to change participant group: %v", err)
+			s.Respond(w, r, http.StatusInternalServerError, msg)
+			return
+		}
+
+		response := map[string]interface{}{"Details": "Group Participants updated successfully"}
+		responseJson, err := json.Marshal(response)
+
+		if err != nil {
+			s.Respond(w, r, http.StatusInternalServerError, err)
+		} else {
+			s.Respond(w, r, http.StatusOK, string(responseJson))
+		}
+
+		return
+	}
+}
+
+// SetGroupAnnounce post
+func (s *server) SetGroupAnnounce() http.HandlerFunc {
+
+	type setGroupAnnounceStruct struct {
+		GroupJID string
+		Announce bool
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		txtid := r.Context().Value("userinfo").(Values).Get("Id")
+		userid, _ := strconv.Atoi(txtid)
+
+		if clientPointer[userid] == nil {
+			s.Respond(w, r, http.StatusInternalServerError, errors.New("No session"))
+			return
+		}
+
+		decoder := json.NewDecoder(r.Body)
+		var t setGroupAnnounceStruct
+		err := decoder.Decode(&t)
+		if err != nil {
+			s.Respond(w, r, http.StatusBadRequest, errors.New("Could not decode Payload"))
+			return
+		}
+
+		group, ok := parseJID(t.GroupJID)
+		if !ok {
+			s.Respond(w, r, http.StatusBadRequest, errors.New("Could not parse Group JID"))
+			return
+		}
+
+		err = clientPointer[userid].SetGroupAnnounce(group, t.Announce)
+
+		if err != nil {
+			log.Error().Str("error", fmt.Sprintf("%v", err)).Msg("Failed to set group announce")
+			msg := fmt.Sprintf("Failed to set group announce: %v", err)
+			s.Respond(w, r, http.StatusInternalServerError, msg)
+			return
+		}
+
+		response := map[string]interface{}{"Details": "Group Announce set successfully"}
+		responseJson, err := json.Marshal(response)
+
+		if err != nil {
+			s.Respond(w, r, http.StatusInternalServerError, err)
+		} else {
+			s.Respond(w, r, http.StatusOK, string(responseJson))
+		}
+
+		return
+	}
+}
+
+// Join group invite link
+func (s *server) GroupJoin() http.HandlerFunc {
+
+	type joinGroupStruct struct {
+		Code string
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		txtid := r.Context().Value("userinfo").(Values).Get("Id")
+		userid, _ := strconv.Atoi(txtid)
+
+		if clientPointer[userid] == nil {
+			s.Respond(w, r, http.StatusInternalServerError, errors.New("No session"))
+			return
+		}
+
+		decoder := json.NewDecoder(r.Body)
+		var t joinGroupStruct
+		err := decoder.Decode(&t)
+		if err != nil {
+			s.Respond(w, r, http.StatusBadRequest, errors.New("Could not decode Payload"))
+			return
+		}
+
+		if t.Code == "" {
+			s.Respond(w, r, http.StatusBadRequest, errors.New("Missing Code in Payload"))
+			return
+		}
+
+		_, err = clientPointer[userid].JoinGroupWithLink(t.Code)
+
+		if err != nil {
+			log.Error().Str("error", fmt.Sprintf("%v", err)).Msg("Failed to join group")
+			msg := fmt.Sprintf("Failed to join group: %v", err)
+			s.Respond(w, r, http.StatusInternalServerError, msg)
+			return
+		}
+
+		response := map[string]interface{}{"Details": "Group joined successfully"}
+		responseJson, err := json.Marshal(response)
+
+		if err != nil {
+			s.Respond(w, r, http.StatusInternalServerError, err)
+		} else {
+			s.Respond(w, r, http.StatusOK, string(responseJson))
+		}
+
+		return
+	}
+}
+
+// SetGroupAnnounce post
+func (s *server) GroupLeave() http.HandlerFunc {
+
+	type groupLeaveStruct struct {
+		GroupJID string
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		txtid := r.Context().Value("userinfo").(Values).Get("Id")
+		userid, _ := strconv.Atoi(txtid)
+
+		if clientPointer[userid] == nil {
+			s.Respond(w, r, http.StatusInternalServerError, errors.New("No session"))
+			return
+		}
+
+		decoder := json.NewDecoder(r.Body)
+		var t groupLeaveStruct
+		err := decoder.Decode(&t)
+		if err != nil {
+			s.Respond(w, r, http.StatusBadRequest, errors.New("Could not decode Payload"))
+			return
+		}
+
+		group, ok := parseJID(t.GroupJID)
+		if !ok {
+			s.Respond(w, r, http.StatusBadRequest, errors.New("Could not parse Group JID"))
+			return
+		}
+
+		err = clientPointer[userid].LeaveGroup(group)
+
+		if err != nil {
+			log.Error().Str("error", fmt.Sprintf("%v", err)).Msg("Failed to leave group")
+			msg := fmt.Sprintf("Failed to leave group: %v", err)
+			s.Respond(w, r, http.StatusInternalServerError, msg)
+			return
+		}
+
+		response := map[string]interface{}{"Details": "Group left successfully"}
 		responseJson, err := json.Marshal(response)
 
 		if err != nil {
