@@ -3550,6 +3550,27 @@ func (s *server) GroupLeave() http.HandlerFunc {
 	}
 }
 
+// Rota de Healthcheck
+func (s *server) GetHealth() http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        // Verificar a conexão com o banco de dados
+        if err := s.db.Ping(); err != nil {
+            s.Respond(w, r, http.StatusInternalServerError, errors.New("Database connection error"))
+            return
+        }
+
+        // Retornar status 200 OK se tudo estiver bem
+        w.Header().Set("Content-Type", "application/json")
+        w.WriteHeader(http.StatusOK)
+        response := map[string]interface{}{
+            "status":    "ok",
+            "timestamp": time.Now().Unix(),
+        }
+        json.NewEncoder(w).Encode(response)
+    }
+}
+
+
 // Admin List users
 func (s *server) ListUsers() http.HandlerFunc {
     type usersStruct struct {

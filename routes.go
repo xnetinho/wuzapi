@@ -104,6 +104,7 @@ func (s *server) routes() {
 	s.router.Handle("/group/announce", c.Then(s.SetGroupAnnounce())).Methods("POST")
 	s.router.Handle("/group/join", c.Then(s.GroupJoin())).Methods("POST")
 	s.router.Handle("/group/leave", c.Then(s.GroupLeave())).Methods("POST")
+	s.router.Handle("/health", c.Then(s.GetHealth())).Methods("GET") // Nova rota para healthcheck do Docker
 
 	s.router.PathPrefix("/").Handler(http.FileServer(http.Dir(exPath+"/static/")))
 }
