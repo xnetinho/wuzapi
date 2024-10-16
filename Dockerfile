@@ -8,6 +8,7 @@ ENV CGO_ENABLED=1
 RUN go build -o server .
 
 FROM alpine:latest
+RUN apk add --no-cache curl
 RUN mkdir /app
 COPY ./static /app/static
 COPY ./migrations /app/migrations

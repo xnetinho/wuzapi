@@ -34,6 +34,7 @@ func (s *server) routes() {
     adminRoutes.Handle("/users", s.AddUser()).Methods("POST")
     adminRoutes.Handle("/users/{id}", s.DeleteUser()).Methods("DELETE")
 
+	// Cadeia de middlewares para rotas autenticadas
 	c := alice.New()
 	c = c.Append(s.authalice)
 	c = c.Append(hlog.NewHandler(log))
@@ -53,6 +54,12 @@ func (s *server) routes() {
 	c = c.Append(hlog.RefererHandler("referer"))
 	c = c.Append(hlog.RequestIDHandler("req_id", "Request-Id"))
 
+	// Cadeia de middlewares para rotas públicas (sem autenticação)
+	publicChain := alice.New()
+	publicChain = publicChain.Append(hlog.NewHandler(log))
+	// Adicione outros middlewares necessários, exceto o de autenticação
+
+	// Rotas autenticadas
 	s.router.Handle("/session/connect", c.Then(s.Connect())).Methods("POST")
 	s.router.Handle("/session/disconnect", c.Then(s.Disconnect())).Methods("POST")
 	s.router.Handle("/session/logout", c.Then(s.Logout())).Methods("POST")
@@ -62,9 +69,8 @@ func (s *server) routes() {
 
     s.router.Handle("/webhook", c.Then(s.SetWebhook())).Methods("POST")
     s.router.Handle("/webhook", c.Then(s.GetWebhook())).Methods("GET")
-    s.router.Handle("/webhook", c.Then(s.DeleteWebhook())).Methods("DELETE") // Nova rota
-    s.router.Handle("/webhook/update", c.Then(s.UpdateWebhook())).Methods("PUT") // Nova rota
-
+    s.router.Handle("/webhook", c.Then(s.DeleteWebhook())).Methods("DELETE")
+    s.router.Handle("/webhook/update", c.Then(s.UpdateWebhook())).Methods("PUT")
 
 	s.router.Handle("/chat/send/text", c.Then(s.SendMessage())).Methods("POST")
 	s.router.Handle("/chat/send/edit", c.Then(s.SendEditMessage())).Methods("POST")
@@ -72,14 +78,13 @@ func (s *server) routes() {
 	s.router.Handle("/chat/send/image", c.Then(s.SendImage())).Methods("POST")
 	s.router.Handle("/chat/send/audio", c.Then(s.SendAudio())).Methods("POST")
 	s.router.Handle("/chat/send/document", c.Then(s.SendDocument())).Methods("POST")
-//	s.router.Handle("/chat/send/template", c.Then(s.SendTemplate())).Methods("POST")
 	s.router.Handle("/chat/send/video", c.Then(s.SendVideo())).Methods("POST")
 	s.router.Handle("/chat/send/sticker", c.Then(s.SendSticker())).Methods("POST")
 	s.router.Handle("/chat/send/location", c.Then(s.SendLocation())).Methods("POST")
 	s.router.Handle("/chat/send/contact", c.Then(s.SendContact())).Methods("POST")
 	s.router.Handle("/chat/react", c.Then(s.React())).Methods("POST")
-	s.router.Handle("/chat/send/buttons",     c.Then(s.SendButtons())).Methods("POST")
-	s.router.Handle("/chat/send/list",     c.Then(s.SendList())).Methods("POST")
+	s.router.Handle("/chat/send/buttons", c.Then(s.SendButtons())).Methods("POST")
+	s.router.Handle("/chat/send/list", c.Then(s.SendList())).Methods("POST")
 
 	s.router.Handle("/user/info", c.Then(s.GetUser())).Methods("POST")
 	s.router.Handle("/user/check", c.Then(s.CheckUser())).Methods("POST")
@@ -104,7 +109,9 @@ func (s *server) routes() {
 	s.router.Handle("/group/announce", c.Then(s.SetGroupAnnounce())).Methods("POST")
 	s.router.Handle("/group/join", c.Then(s.GroupJoin())).Methods("POST")
 	s.router.Handle("/group/leave", c.Then(s.GroupLeave())).Methods("POST")
-	s.router.Handle("/health", c.Then(s.GetHealth())).Methods("GET") // Nova rota para healthcheck do Docker
 
-	s.router.PathPrefix("/").Handler(http.FileServer(http.Dir(exPath+"/static/")))
+	// Rota pública para o healthcheck do Docker
+	s.router.Handle("/health", publicChain.Then(s.GetHealth())).Methods("GET")
+
+	s.router.PathPrefix("/").Handler(http.FileServer(http.Dir(exPath + "/static/")))
 }
