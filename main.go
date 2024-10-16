@@ -48,11 +48,8 @@ var (
 )
 
 func init() {
-	// Carrega variáveis de ambiente do arquivo .env
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal().Err(err).Msg("Erro ao carregar o arquivo .env")
-	}
+	// Tente carregar o .env, mas não sobrescreva variáveis de ambiente existentes
+	_ = godotenv.Overload(".env")
 
 	flag.Parse()
 
@@ -69,6 +66,7 @@ func init() {
 		}
 	}
 }
+
 
 func runMigrations(db *sqlx.DB) {
 	driver, err := postgres.WithInstance(db.DB, &postgres.Config{})
