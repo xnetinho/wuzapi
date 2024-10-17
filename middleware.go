@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/patrickmn/go-cache"
-	"github.com/rs/zerolog/log"
 )
 
 // Middleware para autenticação de administradores
