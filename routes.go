@@ -28,15 +28,16 @@ func (s *server) routes() {
 		log = zerolog.New(output).With().Timestamp().Str("role", filepath.Base(os.Args[0])).Str("host", *address).Logger()
 	}
 
+    // Usar o novo middleware unificado
     adminRoutes := s.router.PathPrefix("/admin").Subrouter()
-    adminRoutes.Use(s.authadmin)
+    adminRoutes.Use(s.authMiddleware)
     adminRoutes.Handle("/users", s.ListUsers()).Methods("GET")
     adminRoutes.Handle("/users", s.AddUser()).Methods("POST")
     adminRoutes.Handle("/users/{id}", s.DeleteUser()).Methods("DELETE")
 
 	// Cadeia de middlewares para rotas autenticadas
 	c := alice.New()
-	c = c.Append(s.authalice)
+	c = c.Append(s.authMiddleware)
 	c = c.Append(hlog.NewHandler(log))
 
 	c = c.Append(hlog.AccessHandler(func(r *http.Request, status, size int, duration time.Duration) {

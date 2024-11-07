@@ -10,130 +10,87 @@ import (
 	"github.com/patrickmn/go-cache"
 )
 
-// Middleware para autenticação de administradores
-func (s *server) authadmin(next http.Handler) http.Handler {
+// validateToken verifica se o token é admin ou usuário e retorna o tipo e dados do usuário
+func (s *server) validateToken(token string) (bool, Values, error) {
+	if token == "" {
+		return false, Values{}, errors.New("no token provided")
+	}
+
+	// Primeiro verifica se é token admin
+	if token == *adminToken {
+		return true, Values{}, nil
+	}
+
+	// Se não for admin, busca informações do usuário
+	var userid = 0
+	var txtid = ""
+	var webhook = ""
+	var jid = ""
+	var events = ""
+
+	// Verifica cache primeiro
+	myuserinfo, found := userinfocache.Get(token)
+	if found {
+		return false, myuserinfo.(Values), nil
+	}
+
+	// Busca no banco de dados
+	rows, err := s.db.Query("SELECT id,webhook,jid,events FROM users WHERE token=$1 LIMIT 1", token)
+	if err != nil {
+		return false, Values{}, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		err = rows.Scan(&txtid, &webhook, &jid, &events)
+		if err != nil {
+			return false, Values{}, err
+		}
+		userid, _ = strconv.Atoi(txtid)
+		v := Values{map[string]string{
+			"Id":      txtid,
+			"Jid":     jid,
+			"Webhook": webhook,
+			"Token":   token,
+			"Events":  events,
+		}}
+		userinfocache.Set(token, v, cache.NoExpiration)
+		return false, v, nil
+	}
+
+	return false, Values{}, errors.New("invalid token")
+}
+
+// Middleware unificado para autenticação
+func (s *server) authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		token := r.Header.Get("Authorization")
-		if token != *adminToken {
+		// Obtém o token do header
+		token := r.Header.Get("token")
+		if token == "" {
+			token = strings.Join(r.URL.Query()["token"], "")
+		}
+
+		// Valida o token
+		isAdmin, userInfo, err := s.validateToken(token)
+		if err != nil {
 			s.Respond(w, r, http.StatusUnauthorized, errors.New("Unauthorized"))
 			return
 		}
+
+		// Para rotas admin, verifica se é token admin
+		if strings.HasPrefix(r.URL.Path, "/admin") && !isAdmin {
+			s.Respond(w, r, http.StatusUnauthorized, errors.New("Unauthorized"))
+			return
+		}
+
+		// Para rotas de usuário, adiciona informações ao contexto
+		if !isAdmin {
+			ctx := context.WithValue(r.Context(), "userinfo", userInfo)
+			next.ServeHTTP(w, r.WithContext(ctx))
+			return
+		}
+
+		// Se chegou aqui é admin
 		next.ServeHTTP(w, r)
 	})
-}
-
-// Middleware para autenticação de usuários
-func (s *server) authalice(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-		var ctx context.Context
-		userid := 0
-		txtid := ""
-		webhook := ""
-		jid := ""
-		events := ""
-
-		// Obtém o token dos headers ou parâmetros da URL
-		token := r.Header.Get("token")
-		if token == "" {
-			token = strings.Join(r.URL.Query()["token"], "")
-		}
-
-		myuserinfo, found := userinfocache.Get(token)
-		if !found {
-			log.Info().Msg("Looking for user information in DB")
-			// Consulta o banco de dados para obter informações do usuário
-			rows, err := s.db.Query("SELECT id,webhook,jid,events FROM users WHERE token=$1 LIMIT 1", token)
-			if err != nil {
-				s.Respond(w, r, http.StatusInternalServerError, err)
-				return
-			}
-			defer rows.Close()
-			for rows.Next() {
-				err = rows.Scan(&txtid, &webhook, &jid, &events)
-				if err != nil {
-					s.Respond(w, r, http.StatusInternalServerError, err)
-					return
-				}
-				userid, _ = strconv.Atoi(txtid)
-				v := Values{map[string]string{
-					"Id":      txtid,
-					"Jid":     jid,
-					"Webhook": webhook,
-					"Token":   token,
-					"Events":  events,
-				}}
-
-				userinfocache.Set(token, v, cache.NoExpiration)
-				ctx = context.WithValue(r.Context(), "userinfo", v)
-			}
-		} else {
-			ctx = context.WithValue(r.Context(), "userinfo", myuserinfo)
-			userid, _ = strconv.Atoi(myuserinfo.(Values).Get("Id"))
-		}
-
-		if userid == 0 {
-			s.Respond(w, r, http.StatusUnauthorized, errors.New("Unauthorized"))
-			return
-		}
-		next.ServeHTTP(w, r.WithContext(ctx))
-	})
-}
-
-// Middleware de autenticação baseado no token
-func (s *server) auth(handler http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-
-		var ctx context.Context
-		userid := 0
-		txtid := ""
-		webhook := ""
-		jid := ""
-		events := ""
-
-		// Obtém o token dos headers ou parâmetros da URL
-		token := r.Header.Get("token")
-		if token == "" {
-			token = strings.Join(r.URL.Query()["token"], "")
-		}
-
-		myuserinfo, found := userinfocache.Get(token)
-		if !found {
-			log.Info().Msg("Looking for user information in DB")
-			// Consulta o banco de dados para obter informações do usuário
-			rows, err := s.db.Query("SELECT id, webhook, jid, events FROM users WHERE token=$1 LIMIT 1", token)
-			if err != nil {
-				s.Respond(w, r, http.StatusInternalServerError, err)
-				return
-			}
-			defer rows.Close()
-			for rows.Next() {
-				err = rows.Scan(&txtid, &webhook, &jid, &events)
-				if err != nil {
-					s.Respond(w, r, http.StatusInternalServerError, err)
-					return
-				}
-				userid, _ = strconv.Atoi(txtid)
-				v := Values{map[string]string{
-					"Id":      txtid,
-					"Jid":     jid,
-					"Webhook": webhook,
-					"Token":   token,
-					"Events":  events,
-				}}
-
-				userinfocache.Set(token, v, cache.NoExpiration)
-				ctx = context.WithValue(r.Context(), "userinfo", v)
-			}
-		} else {
-			ctx = context.WithValue(r.Context(), "userinfo", myuserinfo)
-			userid, _ = strconv.Atoi(myuserinfo.(Values).Get("Id"))
-		}
-
-		if userid == 0 {
-			s.Respond(w, r, http.StatusUnauthorized, errors.New("Unauthorized"))
-			return
-		}
-		handler(w, r.WithContext(ctx))
-	}
 }
