@@ -45,6 +45,10 @@ func (s *server) validateToken(token string) (bool, Values, error) {
 		if err != nil {
 			return false, Values{}, err
 		}
+		// Converte ID para garantir que é um número válido
+		if _, err := strconv.Atoi(txtid); err != nil {
+			return false, Values{}, errors.New("invalid user ID format")
+		}
 		v := Values{map[string]string{
 			"Id":      txtid,
 			"Jid":     jid,
