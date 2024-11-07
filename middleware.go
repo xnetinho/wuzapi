@@ -22,7 +22,6 @@ func (s *server) validateToken(token string) (bool, Values, error) {
 	}
 
 	// Se não for admin, busca informações do usuário
-	var userid = 0
 	var txtid = ""
 	var webhook = ""
 	var jid = ""
@@ -46,7 +45,6 @@ func (s *server) validateToken(token string) (bool, Values, error) {
 		if err != nil {
 			return false, Values{}, err
 		}
-		userid, _ = strconv.Atoi(txtid)
 		v := Values{map[string]string{
 			"Id":      txtid,
 			"Jid":     jid,
